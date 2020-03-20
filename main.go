@@ -42,6 +42,7 @@ type definitionList struct {
 }
 
 func main() {
+	// TODO: set up a ticker to periodically refresh steam game cache
 	// Fetch steam games
 	games, err := getSteamGames("steamgames.json")
 	if err != nil {
