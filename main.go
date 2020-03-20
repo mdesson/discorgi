@@ -123,6 +123,7 @@ func getSteamGames(path string) ([]steamGame, error) {
 
 func discorgiListener(games []steamGame, config map[string]string) func(s *discordgo.Session, m *discordgo.MessageCreate) {
 	return func(s *discordgo.Session, m *discordgo.MessageCreate) {
+		// TODO: Make a struct for commands with properies for name, help, and a function returning a string
 		commands := []string{"help", "steam [game name]", "gif [search term]", "define [search term]", "who's a good boy"}
 		content := strings.ToLower(m.Content)
 
