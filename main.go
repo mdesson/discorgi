@@ -197,6 +197,9 @@ func fetchGif(searchTerm, giphyToken string) string {
 	var container gifContainer
 	json.Unmarshal(body, &container)
 
+	if len(container.Data) < 1 {
+		return "Woof! Can't sniff out the perfect gif."
+	}
 	return container.Data[0].URL
 }
 
