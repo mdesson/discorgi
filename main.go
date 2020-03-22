@@ -180,7 +180,8 @@ func fetchGame(name string, games []steamGame) string {
 }
 
 func fetchGif(searchTerm, giphyToken string) string {
-	url := fmt.Sprintf("https://api.giphy.com/v1/gifs/search?api_key=%v&q=%v&limit=1&offset=0&rating=G&lang=en", giphyToken, searchTerm)
+	searchTerm = strings.ReplaceAll(searchTerm, " ", "+")
+	url := fmt.Sprintf("https://api.giphy.com/v1/gifs/search?api_key=%v&q=%v&limit=1&offset=0&rating=R&lang=en", giphyToken, searchTerm)
 
 	resp, err := http.Get(url)
 	if err != nil {
