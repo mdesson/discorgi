@@ -87,11 +87,12 @@ func main() {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 
-	select {
-	case <-sc:
-		fmt.Println("\nExiting...")
+	// select {
+	// case <-sc:
 
-	}
+	// }
+	<-sc
+	fmt.Println("\nExiting...")
 }
 
 func getConfig(path string) (map[string]string, error) {
