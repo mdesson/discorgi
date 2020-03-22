@@ -136,7 +136,7 @@ func discorgiListener(games []steamGame, config map[string]string) func(s *disco
 		if len(content) < 9 || content[:9] != "discorgi " {
 			return
 		}
-		fmt.Println("Woof! Message received!")
+		fmt.Printf("Woof! Message received! %v said, \"%v\"\n", m.Author, m.Content)
 
 		input := content[9:]
 
