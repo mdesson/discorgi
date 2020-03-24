@@ -81,7 +81,7 @@ func main() {
 	commands := []discorgiFetcher{
 		discorgiFetcher{
 			names: []string{"gif"},
-			help:  "steam [game name]",
+			help:  "gif [search terms]",
 			fetch: func(searchTerm string) string {
 				searchTerm = strings.ReplaceAll(searchTerm, " ", "+")
 				url := fmt.Sprintf("https://api.giphy.com/v1/gifs/search?api_key=%v&q=%v&limit=1&offset=0&rating=R&lang=en", config["giphy-token"], searchTerm)
@@ -122,7 +122,7 @@ func main() {
 			}},
 		discorgiFetcher{
 			names: []string{"define"},
-			help:  "define [search term]",
+			help:  "define [search terms]",
 			fetch: func(searchTerm string) string {
 				url := fmt.Sprintf("https://api.urbandictionary.com/v0/define?term=%v", searchTerm)
 
@@ -149,6 +149,7 @@ func main() {
 			}},
 		discorgiFetcher{
 			names:  []string{"who's a good boy", "whos a good boy", "whose a good boy"},
+			help:   "who's a good boy",
 			noArgs: true,
 			fetch:  func(s string) string { return "https://gfycat.com/femininedefiantgiantschnauzer-corgi-puppy-dog" }},
 	}
