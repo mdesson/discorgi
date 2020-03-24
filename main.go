@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -28,18 +27,14 @@ type gifContainer struct {
 // TODO: Remove this
 type definitionList struct {
 	List []struct {
-		Definition  string        `json:"definition"`
-		Permalink   string        `json:"permalink"`
-		ThumbsUp    int           `json:"thumbs_up"`
-		SoundUrls   []interface{} `json:"sound_urls"`
-		Author      string        `json:"author"`
-		Word        string        `json:"word"`
-		Defid       int           `json:"defid"`
-		CurrentVote string        `json:"current_vote"`
-		WrittenOn   time.Time     `json:"written_on"`
-		Example     string        `json:"example"`
-		ThumbsDown  int           `json:"thumbs_down"`
+		Definition string `json:"definition"`
+		Example    string `json:"example"`
 	} `json:"list"`
+}
+
+type definition struct {
+	Definition string `json:"definition"`
+	Example    string `json:"example"`
 }
 
 type discorgiFetcher struct {
@@ -138,14 +133,15 @@ func main() {
 					return "Woof! Something went wrong!"
 				}
 
-				var definitions definitionList
+				// var definitions definitionList
+				var definitions []definition
 				json.Unmarshal(body, &definitions)
 
-				if len(definitions.List) < 1 {
+				if len(definitions) < 1 {
 					return "Woof! Can't sniff it out on Urban Dictionary."
 				}
-				def := strings.ReplaceAll(definitions.List[0].Definition, "\n", "\n> ")
-				ex := strings.ReplaceAll(definitions.List[0].Example, "\n", "\n> ")
+				def := strings.ReplaceAll(definitions[0].Definition, "\n", "\n> ")
+				ex := strings.ReplaceAll(definitions[0].Example, "\n", "\n> ")
 				return fmt.Sprintf("The Urban Dictionary defines %v as\n> %v\n_Example_:\n> %v", searchTerm, def, ex)
 			}},
 		discorgiFetcher{
