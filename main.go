@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -22,6 +24,12 @@ type discorgiFetcher struct {
 }
 
 //// Structs use in commands ////
+type steamResponse struct {
+	Applist struct {
+		Apps []steamGame `json:"apps"`
+	} `json:"applist"`
+}
+
 type steamGame struct {
 	SteamID int    `json:"appid"`
 	Name    string `json:"name"`
@@ -41,24 +49,30 @@ type definitionList struct {
 }
 
 func main() {
-	// TODO: set up a ticker to periodically refresh steam game cache
-	// Fetch steam games
-	games, err := getSteamGames("steamgames.json")
-	if err != nil {
-		fmt.Println("Error opening steamgames.json:", err)
-		return
-	}
-
-	fmt.Println("Fetched steam games")
-
 	// Fetch config
 	config, err := getConfig("config.json")
 	if err != nil {
-		fmt.Println("Error opening config.json:", err)
-		return
+		log.Fatal("Error opening config.json:", err)
 	}
-
 	fmt.Println("Fetched config")
+
+	// Fetch steam games
+	games := getSteamGames(config["steam-token"])
+
+	// Ticker to update steam games every 24 hours
+	ticker := time.NewTicker(24 * time.Hour)
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				games = getSteamGames(config["steam-token"])
+			}
+		}
+	}()
+	fmt.Println("Fetched steam games")
 
 	// Create discord session
 	discord, err := discordgo.New("Bot " + config["bot-token"])
@@ -214,6 +228,9 @@ func main() {
 	}
 }
 
+//// Helper Functions ////
+
+// Fetch config from json
 func getConfig(path string) (map[string]string, error) {
 	configJSON, err := os.Open(path)
 	if err != nil {
@@ -228,16 +245,21 @@ func getConfig(path string) (map[string]string, error) {
 	return config, nil
 }
 
-func getSteamGames(path string) ([]steamGame, error) {
-	gameJSON, err := os.Open(path)
+// Fetch games via steam api
+func getSteamGames(steamAPIKey string) []steamGame {
+	url := fmt.Sprintf("http://api.steampowered.com/ISteamApps/GetAppList/v0002/?key=%v&format=json", steamAPIKey)
+	resp, err := http.Get(url)
 	if err != nil {
-		return nil, err
+		log.Fatal("fetch steam game get request error: ", err)
 	}
-	defer gameJSON.Close()
+	defer resp.Body.Close()
 
-	jsonBytes, _ := ioutil.ReadAll(gameJSON)
-	games := make([]steamGame, 0)
-	json.Unmarshal([]byte(jsonBytes), &games)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal("fetch steam game body decode error: ", err)
+	}
 
-	return games, nil
+	var list steamResponse
+	json.Unmarshal(body, &list)
+	return list.Applist.Apps
 }
