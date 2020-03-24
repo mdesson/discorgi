@@ -19,7 +19,6 @@ type steamGame struct {
 	Name    string `json:"name"`
 }
 
-// TODO: Remove this
 type gifContainer struct {
 	Data []struct {
 		URL string `json:"url"`
@@ -145,7 +144,9 @@ func main() {
 				if len(definitions.List) < 1 {
 					return "Woof! Can't sniff it out on Urban Dictionary."
 				}
-				return fmt.Sprintf("The Urban Dictionary defines %v as\n> %v", searchTerm, definitions.List[0].Definition)
+				def := strings.ReplaceAll(definitions.List[0].Definition, "\n", "\n> ")
+				ex := strings.ReplaceAll(definitions.List[0].Example, "\n", "\n> ")
+				return fmt.Sprintf("The Urban Dictionary defines %v as\n> %v\n_Example_:\n> %v", searchTerm, def, ex)
 			}},
 		discorgiFetcher{
 			names:  []string{"who's a good boy", "whos a good boy", "whose a good boy"},
@@ -189,7 +190,7 @@ func main() {
 					break
 				} else if len(input) >= len(name)+2 && input[:len(name)+1] == name+" " { // Check if args exist
 
-					msg = cmd.fetch(input[:len(name)+1])
+					msg = cmd.fetch(input[len(name)+1:])
 					break
 				}
 			}
