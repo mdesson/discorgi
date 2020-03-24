@@ -19,12 +19,14 @@ type steamGame struct {
 	Name    string `json:"name"`
 }
 
+// TODO: Remove this
 type gifContainer struct {
 	Data []struct {
 		URL string `json:"url"`
 	} `json:"data"`
 }
 
+// TODO: Remove this
 type definitionList struct {
 	List []struct {
 		Definition  string        `json:"definition"`
@@ -39,6 +41,13 @@ type definitionList struct {
 		Example     string        `json:"example"`
 		ThumbsDown  int           `json:"thumbs_down"`
 	} `json:"list"`
+}
+
+type discorgiFetcher struct {
+	names  []string
+	help   string
+	fetch  func(string) string
+	noArgs bool
 }
 
 func main() {
@@ -68,8 +77,128 @@ func main() {
 		return
 	}
 
-	// Register handlers
-	discord.AddHandler(discorgiListener(games, config))
+	// add commands to discorgi
+	commands := []discorgiFetcher{
+		discorgiFetcher{
+			names: []string{"gif"},
+			help:  "steam [game name]",
+			fetch: func(searchTerm string) string {
+				searchTerm = strings.ReplaceAll(searchTerm, " ", "+")
+				url := fmt.Sprintf("https://api.giphy.com/v1/gifs/search?api_key=%v&q=%v&limit=1&offset=0&rating=R&lang=en", config["giphy-token"], searchTerm)
+
+				resp, err := http.Get(url)
+				if err != nil {
+					fmt.Println("gif get request error: ", err)
+					return "Woof! Something went wrong!"
+				}
+				defer resp.Body.Close()
+
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					fmt.Println("gif body decord error: ", err)
+					return "Woof! Something went wrong!"
+				}
+
+				var container gifContainer
+				json.Unmarshal(body, &container)
+
+				if len(container.Data) < 1 {
+					return "Woof! Can't sniff out the perfect gif."
+				}
+				return container.Data[0].URL
+			}},
+		discorgiFetcher{
+			names: []string{"steam"},
+			help:  "steam [game name]",
+			fetch: func(name string) string {
+				url := "Sorry, couldn't sniff that one out 🔍"
+
+				for _, game := range games {
+					if name == strings.ToLower(game.Name) {
+						url = fmt.Sprintf("https://store.steampowered.com/app/%v", game.SteamID)
+					}
+				}
+
+				return url
+			}},
+		discorgiFetcher{
+			names: []string{"define"},
+			help:  "define [search term]",
+			fetch: func(searchTerm string) string {
+				url := fmt.Sprintf("https://api.urbandictionary.com/v0/define?term=%v", searchTerm)
+
+				resp, err := http.Get(url)
+				if err != nil {
+					fmt.Println("urbanDictionary get request error: ", err)
+					return "Woof! Something went wrong!"
+				}
+				defer resp.Body.Close()
+
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					fmt.Println("urbanDictionary body decord error: ", err)
+					return "Woof! Something went wrong!"
+				}
+
+				var definitions definitionList
+				json.Unmarshal(body, &definitions)
+
+				if len(definitions.List) < 1 {
+					return "Woof! Can't sniff it out on Urban Dictionary."
+				}
+				return fmt.Sprintf("The Urban Dictionary defines %v as\n> %v", searchTerm, definitions.List[0].Definition)
+			}},
+		discorgiFetcher{
+			names:  []string{"who's a good boy", "whos a good boy", "whose a good boy"},
+			noArgs: true,
+			fetch:  func(s string) string { return "https://gfycat.com/femininedefiantgiantschnauzer-corgi-puppy-dog" }},
+	}
+
+	// Register handler
+	discord.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+		content := strings.ToLower(m.Content)
+
+		// Ignore bot's messages
+		if m.Author.ID == s.State.User.ID {
+			return
+		}
+
+		if len(content) < 9 || content[:9] != "discorgi " {
+			return
+		}
+		fmt.Printf("Woof! Message received! %v said, \"%v\"\n", m.Author, m.Content)
+
+		input := content[9:]
+
+		if input == "help" || input == "halp" {
+			msg := "To ask me to do something, just say `discorgi [command goes here]`\n You use the following commands:\n```\n"
+			for _, cmd := range commands {
+				msg += cmd.help + "\n"
+			}
+			msg += "```"
+			s.ChannelMessageSend(m.ChannelID, msg)
+		}
+
+		msg := "I haven't learned that trick yet! 🐕"
+
+		for _, cmd := range commands {
+			for _, name := range cmd.names {
+				// No arguments to command
+				if cmd.noArgs && name == input {
+					msg = cmd.fetch("")
+					break
+				} else if len(input) >= len(name)+2 && input[:len(name)+1] == name+" " { // Check if args exist
+
+					msg = cmd.fetch(input[:len(name)+1])
+					break
+				}
+			}
+			if msg != "I haven't learned that trick yet! 🐕" {
+				break
+			}
+		}
+		s.ChannelMessageSend(m.ChannelID, msg)
+	})
 
 	// Begin listening
 	err = discord.Open()
@@ -119,112 +248,4 @@ func getSteamGames(path string) ([]steamGame, error) {
 	json.Unmarshal([]byte(jsonBytes), &games)
 
 	return games, nil
-}
-
-func discorgiListener(games []steamGame, config map[string]string) func(s *discordgo.Session, m *discordgo.MessageCreate) {
-	return func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		// TODO: Make a struct for commands with properies for name, help, and a function returning a string
-		commands := []string{"help", "steam [game name]", "gif [search term]", "define [search term]", "who's a good boy"}
-		content := strings.ToLower(m.Content)
-
-		// Ignore bot's messages
-		if m.Author.ID == s.State.User.ID {
-			return
-		}
-
-		if len(content) < 9 || content[:9] != "discorgi " {
-			return
-		}
-		fmt.Printf("Woof! Message received! %v said, \"%v\"\n", m.Author, m.Content)
-
-		input := content[9:]
-
-		if input == "help" || input == "halp" {
-			msg := "To ask me to do something, just say `discorgi [command goes here]`\n You use the following commands:\n```\n" + strings.Join(commands, "\n") + "\n```"
-			s.ChannelMessageSend(m.ChannelID, msg)
-		}
-		if input == "whos a good boy" || input == "who's a good boy" {
-			s.ChannelMessageSend(m.ChannelID, "https://gfycat.com/femininedefiantgiantschnauzer-corgi-puppy-dog")
-		}
-
-		// If message is ping, reply with pong
-		if len(input) >= 7 && input[:6] == "steam " {
-			msg := fetchGame(input[6:], games)
-			s.ChannelMessageSend(m.ChannelID, msg)
-		}
-
-		if len(input) >= 5 && input[:4] == "gif " {
-			msg := fetchGif(input[4:], config["giphy-token"])
-			s.ChannelMessageSend(m.ChannelID, msg)
-		}
-
-		if len(input) >= 8 && input[:7] == "define " {
-			msg := fetchDefinition(input[7:])
-			s.ChannelMessageSend(m.ChannelID, msg)
-		}
-	}
-
-}
-
-func fetchGame(name string, games []steamGame) string {
-	url := "Sorry, couldn't sniff that one out 🔍"
-
-	for _, game := range games {
-		if name == strings.ToLower(game.Name) {
-			url = fmt.Sprintf("https://store.steampowered.com/app/%v", game.SteamID)
-		}
-	}
-
-	return url
-}
-
-func fetchGif(searchTerm, giphyToken string) string {
-	searchTerm = strings.ReplaceAll(searchTerm, " ", "+")
-	url := fmt.Sprintf("https://api.giphy.com/v1/gifs/search?api_key=%v&q=%v&limit=1&offset=0&rating=R&lang=en", giphyToken, searchTerm)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		fmt.Println("gif get request error: ", err)
-		return "Woof! Something went wrong!"
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("gif body decord error: ", err)
-		return "Woof! Something went wrong!"
-	}
-
-	var container gifContainer
-	json.Unmarshal(body, &container)
-
-	if len(container.Data) < 1 {
-		return "Woof! Can't sniff out the perfect gif."
-	}
-	return container.Data[0].URL
-}
-
-func fetchDefinition(searchTerm string) string {
-	url := fmt.Sprintf("https://api.urbandictionary.com/v0/define?term=%v", searchTerm)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		fmt.Println("urbanDictionary get request error: ", err)
-		return "Woof! Something went wrong!"
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("urbanDictionary body decord error: ", err)
-		return "Woof! Something went wrong!"
-	}
-
-	var definitions definitionList
-	json.Unmarshal(body, &definitions)
-
-	if len(definitions.List) < 1 {
-		return "Woof! Can't sniff it out on Urban Dictionary."
-	}
-	return fmt.Sprintf("The Urban Dictionary defines %v as\n> %v", searchTerm, definitions.List[0].Definition)
 }
