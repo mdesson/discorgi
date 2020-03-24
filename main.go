@@ -68,7 +68,9 @@ func main() {
 			case <-done:
 				return
 			case <-ticker.C:
+				fmt.Print("Updated steam games... ")
 				games = getSteamGames(config["steam-token"])
+				fmt.Println("Complete")
 			}
 		}
 	}()
