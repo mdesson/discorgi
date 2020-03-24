@@ -118,7 +118,6 @@ func main() {
 						url = fmt.Sprintf("https://store.steampowered.com/app/%v", game.SteamID)
 					}
 				}
-
 				return url
 			}},
 		discorgiFetcher{
