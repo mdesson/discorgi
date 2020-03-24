@@ -13,6 +13,15 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+// Discorgi command
+type discorgiFetcher struct {
+	names  []string
+	help   string
+	fetch  func(string) string
+	noArgs bool
+}
+
+//// Structs use in commands ////
 type steamGame struct {
 	SteamID int    `json:"appid"`
 	Name    string `json:"name"`
@@ -24,24 +33,11 @@ type gifContainer struct {
 	} `json:"data"`
 }
 
-// TODO: Remove this
 type definitionList struct {
 	List []struct {
 		Definition string `json:"definition"`
 		Example    string `json:"example"`
 	} `json:"list"`
-}
-
-type definition struct {
-	Definition string `json:"definition"`
-	Example    string `json:"example"`
-}
-
-type discorgiFetcher struct {
-	names  []string
-	help   string
-	fetch  func(string) string
-	noArgs bool
 }
 
 func main() {
@@ -133,15 +129,14 @@ func main() {
 					return "Woof! Something went wrong!"
 				}
 
-				// var definitions definitionList
-				var definitions []definition
+				var definitions definitionList
 				json.Unmarshal(body, &definitions)
 
-				if len(definitions) < 1 {
+				if len(definitions.List) < 1 {
 					return "Woof! Can't sniff it out on Urban Dictionary."
 				}
-				def := strings.ReplaceAll(definitions[0].Definition, "\n", "\n> ")
-				ex := strings.ReplaceAll(definitions[0].Example, "\n", "\n> ")
+				def := strings.ReplaceAll(definitions.List[0].Definition, "\n", "\n> ")
+				ex := strings.ReplaceAll(definitions.List[0].Example, "\n", "\n> ")
 				return fmt.Sprintf("The Urban Dictionary defines %v as\n> %v\n_Example_:\n> %v", searchTerm, def, ex)
 			}},
 		discorgiFetcher{
