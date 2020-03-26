@@ -20,7 +20,7 @@ import (
 type discorgiFetcher struct {
 	names  []string
 	help   string
-	fetch  func(string) string
+	fetch  func(string) (string, error)
 	noArgs bool
 }
 
@@ -97,35 +97,36 @@ func main() {
 		discorgiFetcher{
 			names: []string{"gif"},
 			help:  "gif [search terms]",
-			fetch: func(searchTerm string) string {
+			fetch: func(searchTerm string) (string, error) {
 				searchTerm = strings.ReplaceAll(searchTerm, " ", "+")
 				url := fmt.Sprintf("https://api.giphy.com/v1/gifs/search?api_key=%v&q=%v&limit=1&offset=0&rating=R&lang=en", config["giphy-token"], searchTerm)
 
 				resp, err := http.Get(url)
 				if err != nil {
-					fmt.Println("gif get request error: ", err)
-					return "Woof! Something went wrong!"
+					return "Woof! Something went wrong!", err
 				}
 				defer resp.Body.Close()
 
 				body, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
-					fmt.Println("gif body decord error: ", err)
-					return "Woof! Something went wrong!"
+					return "Woof! Something went wrong!", err
 				}
 
 				var container gifContainer
-				json.Unmarshal(body, &container)
+				err = json.Unmarshal(body, &container)
+				if err != nil {
+					return "Woof! Something went wrong!", err
+				}
 
 				if len(container.Data) < 1 {
-					return "Woof! Can't sniff out the perfect gif."
+					return "Woof! Can't sniff out the perfect gif.", nil
 				}
-				return container.Data[0].URL
+				return container.Data[0].URL, err
 			}},
 		discorgiFetcher{
 			names: []string{"steam"},
 			help:  "steam [game name]",
-			fetch: func(name string) string {
+			fetch: func(name string) (string, error) {
 				// Default value
 				url := "Sorry, couldn't sniff that one out 🔍"
 
@@ -141,42 +142,45 @@ func main() {
 						break
 					}
 				}
-				return url
+				return url, nil
 			}},
 		discorgiFetcher{
 			names: []string{"define"},
 			help:  "define [search terms]",
-			fetch: func(searchTerm string) string {
+			fetch: func(searchTerm string) (string, error) {
 				url := fmt.Sprintf("https://api.urbandictionary.com/v0/define?term=%v", searchTerm)
 
 				resp, err := http.Get(url)
 				if err != nil {
-					fmt.Println("urbanDictionary get request error: ", err)
-					return "Woof! Something went wrong!"
+					return "Woof! Something went wrong!", err
 				}
 				defer resp.Body.Close()
 
 				body, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
-					fmt.Println("urbanDictionary body decord error: ", err)
-					return "Woof! Something went wrong!"
+					return "Woof! Something went wrong!", err
 				}
 
 				var definitions definitionList
-				json.Unmarshal(body, &definitions)
+				err = json.Unmarshal(body, &definitions)
+				if err != nil {
+					return "Woof! Something went wrong!", err
+				}
 
 				if len(definitions.List) < 1 {
-					return "Woof! Can't sniff it out on Urban Dictionary."
+					return "Woof! Can't sniff it out on Urban Dictionary.", nil
 				}
 				def := strings.ReplaceAll(definitions.List[0].Definition, "\n", "\n> ")
 				ex := strings.ReplaceAll(definitions.List[0].Example, "\n", "\n> ")
-				return fmt.Sprintf("The Urban Dictionary defines %v as\n> %v\n_Example_:\n> %v", searchTerm, def, ex)
+				return fmt.Sprintf("The Urban Dictionary defines %v as\n> %v\n_Example_:\n> %v", searchTerm, def, ex), nil
 			}},
 		discorgiFetcher{
 			names:  []string{"who's a good boy", "whos a good boy", "whose a good boy"},
 			help:   "who's a good boy",
 			noArgs: true,
-			fetch:  func(s string) string { return "https://gfycat.com/femininedefiantgiantschnauzer-corgi-puppy-dog" }},
+			fetch: func(s string) (string, error) {
+				return "https://gfycat.com/femininedefiantgiantschnauzer-corgi-puppy-dog", nil
+			}},
 	}
 
 	// Register handler
@@ -210,11 +214,17 @@ func main() {
 			for _, name := range cmd.names {
 				// No arguments to command
 				if cmd.noArgs && name == input {
-					msg = cmd.fetch("")
+					msg, err = cmd.fetch("")
+					if err != nil {
+						fmt.Println("ERROR: ", err)
+					}
 					break
 				} else if len(input) >= len(name)+2 && input[:len(name)+1] == name+" " { // Check if args exist
 
-					msg = cmd.fetch(input[len(name)+1:])
+					msg, err = cmd.fetch(input[len(name)+1:])
+					if err != nil {
+						fmt.Println("ERROR: ", err)
+					}
 					break
 				}
 			}
@@ -258,7 +268,10 @@ func getConfig(path string) (map[string]string, error) {
 
 	var config map[string]string
 	jsonBytes, _ := ioutil.ReadAll(configJSON)
-	json.Unmarshal([]byte(jsonBytes), &config)
+	err = json.Unmarshal([]byte(jsonBytes), &config)
+	if err != nil {
+		return nil, err
+	}
 
 	return config, nil
 }
@@ -278,6 +291,10 @@ func getSteamGames(steamAPIKey string) ([]steamGame, error) {
 	}
 
 	var list steamResponse
-	json.Unmarshal(body, &list)
+	err = json.Unmarshal(body, &list)
+	if err != nil {
+		return nil, err
+	}
+
 	return list.Applist.Apps, nil
 }
