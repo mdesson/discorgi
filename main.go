@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -50,15 +51,21 @@ type definitionList struct {
 }
 
 func main() {
-	// Fetch config
-	config, err := getConfig("config.json")
-	if err != nil {
-		log.Fatal("Error opening config.json:", err)
+	botToken := flag.String("bot-token", "", "Discord bot token")
+	steamToken := flag.String("steam-token", "", "Steam token")
+	giphyToken := flag.String("giphy-token", "", "Giphy token")
+	flag.Parse()
+
+	if *botToken == "" {
+		log.Fatal("Error: Missing bot-token command flag")
+	} else if *steamToken == "" {
+		log.Fatal("Error: Missing steam-token command flag")
+	} else if *giphyToken == "" {
+		log.Fatal("Error: Missing giphy-token command flag")
 	}
-	fmt.Println("Fetched config")
 
 	// Fetch steam games
-	games, err := getSteamGames(config["steam-token"])
+	games, err := getSteamGames(*steamToken)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -76,7 +83,7 @@ func main() {
 			case <-ticker.C:
 				fmt.Print("Updated steam games... ")
 				gamesMutex.Lock()
-				games, err = getSteamGames(config["steam-token"])
+				games, err = getSteamGames(*steamToken)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -87,7 +94,7 @@ func main() {
 	}()
 
 	// Create discord session
-	discord, err := discordgo.New("Bot " + config["bot-token"])
+	discord, err := discordgo.New("Bot " + *botToken)
 	if err != nil {
 		log.Fatal("Error creating discord session:", err)
 	}
@@ -99,7 +106,7 @@ func main() {
 			help:  "gif [search terms]",
 			fetch: func(searchTerm string) (string, error) {
 				searchTerm = strings.ReplaceAll(searchTerm, " ", "+")
-				url := fmt.Sprintf("https://api.giphy.com/v1/gifs/search?api_key=%v&q=%v&limit=1&offset=0&rating=R&lang=en", config["giphy-token"], searchTerm)
+				url := fmt.Sprintf("https://api.giphy.com/v1/gifs/search?api_key=%v&q=%v&limit=1&offset=0&rating=R&lang=en", *giphyToken, searchTerm)
 
 				resp, err := http.Get(url)
 				if err != nil {
@@ -254,26 +261,6 @@ func main() {
 	case <-sc:
 		fmt.Println("\nExiting...")
 	}
-}
-
-//// Helper Functions ////
-
-// Fetch config from json
-func getConfig(path string) (map[string]string, error) {
-	configJSON, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer configJSON.Close()
-
-	var config map[string]string
-	jsonBytes, _ := ioutil.ReadAll(configJSON)
-	err = json.Unmarshal([]byte(jsonBytes), &config)
-	if err != nil {
-		return nil, err
-	}
-
-	return config, nil
 }
 
 // Fetch games via steam api
