@@ -58,11 +58,15 @@ func main() {
 	fmt.Println("Fetched config")
 
 	// Fetch steam games
-	games := getSteamGames(config["steam-token"])
-	gamesMutex := sync.Mutex{}
+	games, err := getSteamGames(config["steam-token"])
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Fetched steam games")
 
 	// Ticker to update steam games every 24 hours
 	ticker := time.NewTicker(24 * time.Hour)
+	gamesMutex := sync.Mutex{}
 	done := make(chan bool)
 	go func() {
 		for {
@@ -72,19 +76,20 @@ func main() {
 			case <-ticker.C:
 				fmt.Print("Updated steam games... ")
 				gamesMutex.Lock()
-				games = getSteamGames(config["steam-token"])
+				games, err = getSteamGames(config["steam-token"])
+				if err != nil {
+					log.Fatal(err)
+				}
 				gamesMutex.Unlock()
 				fmt.Println("Complete")
 			}
 		}
 	}()
-	fmt.Println("Fetched steam games")
 
 	// Create discord session
 	discord, err := discordgo.New("Bot " + config["bot-token"])
 	if err != nil {
-		fmt.Println("Error creating discord session:", err)
-		return
+		log.Fatal("Error creating discord session:", err)
 	}
 
 	// add commands to discorgi
@@ -223,8 +228,7 @@ func main() {
 	// Begin listening
 	err = discord.Open()
 	if err != nil {
-		fmt.Println("Error opening connection: ", err)
-		return
+		log.Fatal("Error opening connection: ", err)
 	}
 
 	// Close at end of session
@@ -260,20 +264,20 @@ func getConfig(path string) (map[string]string, error) {
 }
 
 // Fetch games via steam api
-func getSteamGames(steamAPIKey string) []steamGame {
+func getSteamGames(steamAPIKey string) ([]steamGame, error) {
 	url := fmt.Sprintf("http://api.steampowered.com/ISteamApps/GetAppList/v0002/?key=%v&format=json", steamAPIKey)
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Fatal("fetch steam game get request error: ", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal("fetch steam game body decode error: ", err)
+		return nil, err
 	}
 
 	var list steamResponse
 	json.Unmarshal(body, &list)
-	return list.Applist.Apps
+	return list.Applist.Apps, nil
 }
