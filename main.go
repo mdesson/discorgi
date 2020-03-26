@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -58,6 +59,7 @@ func main() {
 
 	// Fetch steam games
 	games := getSteamGames(config["steam-token"])
+	gamesMutex := sync.Mutex{}
 
 	// Ticker to update steam games every 24 hours
 	ticker := time.NewTicker(24 * time.Hour)
@@ -69,7 +71,9 @@ func main() {
 				return
 			case <-ticker.C:
 				fmt.Print("Updated steam games... ")
+				gamesMutex.Lock()
 				games = getSteamGames(config["steam-token"])
+				gamesMutex.Unlock()
 				fmt.Println("Complete")
 			}
 		}
@@ -117,11 +121,19 @@ func main() {
 			names: []string{"steam"},
 			help:  "steam [game name]",
 			fetch: func(name string) string {
+				// Default value
 				url := "Sorry, couldn't sniff that one out 🔍"
 
-				for _, game := range games {
+				// Make a copy of current game cache
+				gamesMutex.Lock()
+				gamesInstance := games
+				gamesMutex.Unlock()
+
+				// Range over games to see if game exists
+				for _, game := range gamesInstance {
 					if name == strings.ToLower(game.Name) {
 						url = fmt.Sprintf("https://store.steampowered.com/app/%v", game.SteamID)
+						break
 					}
 				}
 				return url
