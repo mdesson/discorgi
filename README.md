@@ -1,8 +1,6 @@
 # discorgi
 Discord bot. Fetches things for friends. Is good boy.
 
-Simple discord bot that listens to a server and acts on user input.
-
 ## Running Discorgi
 
 The current version uses CLI flags to run:
